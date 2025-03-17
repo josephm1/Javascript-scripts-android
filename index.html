@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JavaScript Button Runner</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+      }
+      .button-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+      }
+      button {
+        padding: 10px 15px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+      }
+      button:hover {
+        background-color: #45a049;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>JavaScript Runner</h1>
+
+    <div class="button-container" id="buttonContainer">
+      <!-- Buttons will be generated here -->
+    </div>
+
+    <script>
+      // List of JavaScript files in your directory
+      const jsFiles = [
+        "script1.js",
+        "script2.js",
+        "script3.js",
+        // Add more files here as needed
+      ];
+
+      // Function to run a JavaScript file
+      function runScript(filename) {
+        console.log(`Running ${filename}`);
+
+        // Create a new script element
+        const script = document.createElement("script");
+        script.src = filename;
+
+        // Add a unique query parameter to prevent caching
+        script.src += `?v=${new Date().getTime()}`;
+
+        // Remove the script after it loads (for potential rerunning)
+        script.onload = function () {
+          this.remove();
+        };
+
+        // Add the script to the document to execute it
+        document.body.appendChild(script);
+      }
+
+      // Generate buttons for each JavaScript file
+      const buttonContainer = document.getElementById("buttonContainer");
+
+      jsFiles.forEach((file) => {
+        const button = document.createElement("button");
+        button.textContent = `Run ${file}`;
+        button.onclick = function () {
+          runScript(file);
+        };
+        buttonContainer.appendChild(button);
+      });
+    </script>
+  </body>
+</html>
