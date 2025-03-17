@@ -3,22 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JavaScript Button Runner</title>
+    <meta name="theme-color" content="#4CAF50" />
+    <title>JS Terminal</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/png" href="icon.png" />
     <style>
       body {
         font-family: Arial, sans-serif;
         max-width: 800px;
         margin: 0 auto;
         padding: 20px;
+        background-color: #f5f5f5;
       }
       h1 {
         text-align: center;
+        color: #333;
       }
       .button-container {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
         margin-top: 20px;
+        margin-bottom: 20px;
       }
       button {
         padding: 10px 15px;
@@ -33,13 +39,131 @@
       button:hover {
         background-color: #45a049;
       }
+      #terminal {
+        background-color: #1e1e1e;
+        color: #f0f0f0;
+        font-family: "Courier New", monospace;
+        padding: 10px;
+        border-radius: 4px;
+        height: 350px;
+        overflow-y: auto;
+        margin-top: 20px;
+        position: relative;
+      }
+      .log-entry {
+        margin: 5px 0;
+        word-wrap: break-word;
+      }
+      .log-info {
+        color: #63c0f5;
+      }
+      .log-error {
+        color: #f08080;
+      }
+      .log-warn {
+        color: #ffcc66;
+      }
+      .log-command {
+        color: #d7ba7d;
+      }
+      .log-result {
+        color: #9cdcfe;
+      }
+      .terminal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .terminal-actions {
+        display: flex;
+        gap: 10px;
+      }
+      .terminal-btn {
+        background-color: #666;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+      .terminal-btn:hover {
+        background-color: #888;
+      }
+      #command-input-container {
+        display: flex;
+        margin-top: 10px;
+      }
+      #command-prompt {
+        color: #4caf50;
+        padding: 5px;
+        user-select: none;
+      }
+      #command-input {
+        flex-grow: 1;
+        background-color: transparent;
+        border: none;
+        color: #f0f0f0;
+        font-family: "Courier New", monospace;
+        font-size: 16px;
+        padding: 5px;
+        outline: none;
+      }
+      #command-input:focus {
+        outline: none;
+      }
+      .install-prompt {
+        background-color: #e0e0e0;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .install-prompt button {
+        margin-left: 10px;
+      }
+      @media (max-width: 600px) {
+        #terminal {
+          height: 300px;
+        }
+        body {
+          padding: 10px;
+        }
+      }
     </style>
   </head>
   <body>
-    <h1>JavaScript Runner</h1>
+    <div id="install-prompt" class="install-prompt">
+      <span>Install this app on your device</span>
+      <button id="install-button" class="terminal-btn">Install</button>
+    </div>
+
+    <h1>JavaScript Terminal</h1>
 
     <div class="button-container" id="buttonContainer">
       <!-- Buttons will be generated here -->
+    </div>
+
+    <div class="terminal-header">
+      <h2>Terminal</h2>
+      <div class="terminal-actions">
+        <button class="terminal-btn" onclick="clearTerminal()">Clear</button>
+        <button class="terminal-btn" onclick="toggleHelp()">Help</button>
+      </div>
+    </div>
+    <div id="terminal">
+      <div id="terminal-output"></div>
+      <div id="command-input-container">
+        <span id="command-prompt">></span>
+        <input
+          type="text"
+          id="command-input"
+          autofocus
+          placeholder="Type commands here..."
+        />
+      </div>
     </div>
 
     <script>
@@ -51,9 +175,202 @@
         // Add more files here as needed
       ];
 
+      // Terminal elements
+      const terminalOutput = document.getElementById("terminal-output");
+      const commandInput = document.getElementById("command-input");
+      const terminal = document.getElementById("terminal");
+      const installPrompt = document.getElementById("install-prompt");
+      const installButton = document.getElementById("install-button");
+
+      // Command history
+      let commandHistory = [];
+      let historyIndex = -1;
+      let deferredPrompt;
+
+      // Service Worker Registration
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("sw.js")
+            .then((reg) =>
+              console.info("Service Worker registered successfully")
+            )
+            .catch((err) =>
+              console.error("Service Worker registration failed:", err)
+            );
+        });
+      }
+
+      // PWA Installation
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        installPrompt.style.display = "flex";
+      });
+
+      installButton.addEventListener("click", async () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.info(
+            `User ${
+              outcome === "accepted" ? "accepted" : "declined"
+            } the installation`
+          );
+          deferredPrompt = null;
+        }
+        installPrompt.style.display = "none";
+      });
+
+      window.addEventListener("appinstalled", () => {
+        installPrompt.style.display = "none";
+        console.info("PWA installed successfully");
+      });
+
+      // Initialize terminal
+      function initTerminal() {
+        // Focus input when clicking anywhere in the terminal
+        terminal.addEventListener("click", function () {
+          commandInput.focus();
+        });
+
+        // Handle command input
+        commandInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") {
+            const command = commandInput.value.trim();
+            if (command) {
+              executeCommand(command);
+              commandHistory.push(command);
+              historyIndex = commandHistory.length;
+              commandInput.value = "";
+            }
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (historyIndex > 0) {
+              historyIndex--;
+              commandInput.value = commandHistory[historyIndex];
+            }
+          } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (historyIndex < commandHistory.length - 1) {
+              historyIndex++;
+              commandInput.value = commandHistory[historyIndex];
+            } else {
+              historyIndex = commandHistory.length;
+              commandInput.value = "";
+            }
+          }
+        });
+
+        // Initial welcome message
+        addTerminalEntry(
+          "Welcome to JavaScript Terminal. Type 'help' for available commands.",
+          "info"
+        );
+      }
+
+      // Function to execute terminal commands
+      function executeCommand(command) {
+        addTerminalEntry(command, "command");
+
+        // Command handling
+        if (command.toLowerCase() === "help") {
+          showHelp();
+        } else if (command.toLowerCase() === "clear") {
+          clearTerminal();
+        } else if (command.toLowerCase() === "list") {
+          listScripts();
+        } else if (command.startsWith("run ")) {
+          const scriptName = command.substring(4).trim();
+          runScript(scriptName);
+        } else {
+          // Try to evaluate as JavaScript
+          try {
+            const result = eval(command);
+            addTerminalEntry(
+              typeof result === "object"
+                ? JSON.stringify(result, null, 2)
+                : result,
+              "result"
+            );
+          } catch (error) {
+            addTerminalEntry(`Error: ${error.message}`, "error");
+          }
+        }
+
+        // Scroll to bottom
+        terminal.scrollTop = terminal.scrollHeight;
+      }
+
+      // Show available commands
+      function showHelp() {
+        const helpText = [
+          "Available commands:",
+          "help - Show this help message",
+          "clear - Clear the terminal",
+          "list - List available JavaScript files",
+          "run <filename> - Run a specific JavaScript file",
+          "",
+          "You can also execute any JavaScript code directly in the terminal.",
+        ];
+        helpText.forEach((line) => addTerminalEntry(line, "info"));
+      }
+
+      // Toggle help display
+      function toggleHelp() {
+        showHelp();
+      }
+
+      // List available scripts
+      function listScripts() {
+        addTerminalEntry("Available scripts:", "info");
+        jsFiles.forEach((file) => {
+          addTerminalEntry(`- ${file}`, "info");
+        });
+        addTerminalEntry("Run a script with: run <filename>", "info");
+      }
+
+      // Function to add entry to terminal
+      function addTerminalEntry(text, type = "log") {
+        const entry = document.createElement("div");
+        entry.className = `log-entry log-${type}`;
+
+        if (type === "command") {
+          entry.textContent = `> ${text}`;
+        } else {
+          entry.textContent = text;
+        }
+
+        terminalOutput.appendChild(entry);
+        terminal.scrollTop = terminal.scrollHeight;
+      }
+
+      // Function to clear the terminal
+      function clearTerminal() {
+        terminalOutput.innerHTML = "";
+        addTerminalEntry("Terminal cleared.", "info");
+      }
+
       // Function to run a JavaScript file
       function runScript(filename) {
-        console.log(`Running ${filename}`);
+        // If just the script number was provided (e.g., "1" instead of "script1.js")
+        if (/^\d+$/.test(filename)) {
+          filename = `script${filename}.js`;
+        }
+
+        // Check if the file exists in our list
+        if (
+          !jsFiles.includes(filename) &&
+          !jsFiles.some((file) => file === filename)
+        ) {
+          addTerminalEntry(
+            `Error: File "${filename}" not found. Use 'list' to see available files.`,
+            "error"
+          );
+          return;
+        }
+
+        addTerminalEntry(`Running ${filename}...`, "info");
 
         // Create a new script element
         const script = document.createElement("script");
@@ -62,14 +379,75 @@
         // Add a unique query parameter to prevent caching
         script.src += `?v=${new Date().getTime()}`;
 
+        // Handle script load errors
+        script.onerror = function () {
+          addTerminalEntry(`Failed to load ${filename}`, "error");
+        };
+
         // Remove the script after it loads (for potential rerunning)
         script.onload = function () {
+          addTerminalEntry(`${filename} completed execution`, "info");
           this.remove();
         };
 
         // Add the script to the document to execute it
         document.body.appendChild(script);
       }
+
+      // Override console methods to display in our terminal
+      const originalConsole = {
+        log: console.log,
+        error: console.error,
+        warn: console.warn,
+        info: console.info,
+      };
+
+      console.log = function (...args) {
+        originalConsole.log.apply(console, args);
+        addTerminalEntry(
+          args
+            .map((arg) =>
+              typeof arg === "object" ? JSON.stringify(arg, null, 2) : arg
+            )
+            .join(" ")
+        );
+      };
+
+      console.error = function (...args) {
+        originalConsole.error.apply(console, args);
+        addTerminalEntry(
+          args
+            .map((arg) =>
+              typeof arg === "object" ? JSON.stringify(arg, null, 2) : arg
+            )
+            .join(" "),
+          "error"
+        );
+      };
+
+      console.warn = function (...args) {
+        originalConsole.warn.apply(console, args);
+        addTerminalEntry(
+          args
+            .map((arg) =>
+              typeof arg === "object" ? JSON.stringify(arg, null, 2) : arg
+            )
+            .join(" "),
+          "warn"
+        );
+      };
+
+      console.info = function (...args) {
+        originalConsole.info.apply(console, args);
+        addTerminalEntry(
+          args
+            .map((arg) =>
+              typeof arg === "object" ? JSON.stringify(arg, null, 2) : arg
+            )
+            .join(" "),
+          "info"
+        );
+      };
 
       // Generate buttons for each JavaScript file
       const buttonContainer = document.getElementById("buttonContainer");
@@ -82,6 +460,9 @@
         };
         buttonContainer.appendChild(button);
       });
+
+      // Initialize the terminal
+      initTerminal();
     </script>
   </body>
 </html>

@@ -1,0 +1,16 @@
+{
+  "name": "JavaScript Terminal",
+  "short_name": "JS Terminal",
+  "description": "Interactive JavaScript terminal to run and execute scripts",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f5f5",
+  "theme_color": "#4CAF50",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "120x120",
+      "type": "image/png"
+    }
+  ]
+}
